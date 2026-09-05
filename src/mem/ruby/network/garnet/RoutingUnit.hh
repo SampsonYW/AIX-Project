@@ -77,6 +77,10 @@ class RoutingUnit
     int outportComputeCustom(RouteInfo route,
                              int inport,
                              PortDirection inport_dirn);
+    
+    int outportComputeTorusDOR(RouteInfo route,
+                               int inport,
+                               PortDirection inport_dirn);
 
     // Returns true if vnet is present in the vector
     // of vnets or if the vector supports all vnets.

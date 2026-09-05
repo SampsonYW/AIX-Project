@@ -193,6 +193,8 @@ RoutingUnit::outportCompute(RouteInfo route, int inport,
         // any custom algorithm
         case CUSTOM_: outport =
             outportComputeCustom(route, inport, inport_dirn); break;
+        case TORUS_DOR_: outport = 
+            outportComputeTorusDOR(route, inport, inport_dirn); break;
         default: outport =
             lookupRoutingTable(route.vnet, route.net_dest); break;
     }
@@ -258,6 +260,38 @@ RoutingUnit::outportComputeXY(RouteInfo route,
     }
 
     return m_outports_dirn2idx[outport_dirn];
+}
+
+int
+RoutingUnit::outportComputeTorusDOR(RouteInfo route,
+                                 int inport,
+                                 PortDirection inport_dirn)
+{
+    std::vector<int> dims = m_router->get_net_ptr()->getTorusDims();
+    int n = dims.size();
+    auto decode = [&](int id) {
+        std::vector<int> coord;
+        for(int i = 0; i < n; i++) {
+            coord.push_back(id % dims[i]);
+            id /= dims[i];
+        }
+        return coord;
+    } ;
+    int my_id = m_router->get_id();
+    int dest_id = route.dest_router;
+    std::vector<int> my = decode(my_id);
+    std::vector<int> dest = decode(dest_id);
+    for(int i = 0; i < n; i++) {
+        if(my[i] != dest[i]) {
+            int plus = (dest[i] - my[i] + dims[i]) % dims[i];
+            int minus = (my[i] - dest[i] + dims[i]) % dims[i];
+            PortDirection outport_dirn = "D" + std::to_string(i);
+            if(plus <= minus) outport_dirn += "+";
+            else outport_dirn += "-";
+            return m_outports_dirn2idx[outport_dirn];
+        }
+    }
+    assert(0);
 }
 
 // Template for implementing custom routing algorithm
