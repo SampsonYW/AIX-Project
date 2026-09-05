@@ -169,7 +169,7 @@ RoutingUnit::addOutDirection(PortDirection outport_dirn, int outport_idx)
 // table is provided here.
 
 int
-RoutingUnit::outportCompute(RouteInfo route, int inport,
+RoutingUnit::outportCompute(RouteInfo& route, int inport,
                             PortDirection inport_dirn)
 {
     int outport = -1;
@@ -268,7 +268,7 @@ RoutingUnit::outportComputeXY(RouteInfo route,
 }
 
 int
-RoutingUnit::outportComputeTorusDOR(RouteInfo route,
+RoutingUnit::outportComputeTorusDOR(RouteInfo& route,
                                  int inport,
                                  PortDirection inport_dirn)
 {
@@ -291,8 +291,22 @@ RoutingUnit::outportComputeTorusDOR(RouteInfo route,
             int plus = (dest[i] - my[i] + dims[i]) % dims[i];
             int minus = (my[i] - dest[i] + dims[i]) % dims[i];
             PortDirection outport_dirn = "D" + std::to_string(i);
-            if(plus <= minus) outport_dirn += "+";
-            else outport_dirn += "-";
+            std::string dir;
+            if(plus <= minus) dir = "+";
+            else dir = "-";
+            outport_dirn += dir;
+            if(m_router->get_net_ptr()->isEscapeEnabled()) {
+                bool dateline = 0;
+                if(dir == "+" && my[i] == dims[i] - 1) dateline = 1;
+                if(dir == "-" && my[i] == 0) dateline = 1;
+                bool change = 0;
+                int in = -1;
+                if(inport_dirn.size() == 3 && inport_dirn[0] == 'D' && isdigit(inport_dirn[1]) && (inport_dirn[2] == '+' || inport_dirn[2] == '-'))
+                    in = inport_dirn[1] - '0';
+                if(in != i) change = 1;
+                if(change) route.vc_class = 1;
+                if(dateline) route.vc_class = 0;
+            }
             return m_outports_dirn2idx[outport_dirn];
         }
     }

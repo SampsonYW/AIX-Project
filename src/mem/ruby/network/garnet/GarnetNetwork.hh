@@ -159,6 +159,8 @@ class GarnetNetwork : public Network
 
     std::vector<int> getTorusDims() const {return m_torus_dims;}
 
+    bool isEscapeEnabled() const {return m_enable_escape;}
+
   protected:
     // Configuration
     int m_num_rows;
@@ -170,6 +172,7 @@ class GarnetNetwork : public Network
     uint32_t m_buffers_per_data_vc;
     int m_routing_algorithm;
     bool m_enable_fault_model;
+    bool m_enable_escape;
 
     // Statistical variables
     statistics::Vector m_packets_received;

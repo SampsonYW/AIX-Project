@@ -55,7 +55,7 @@ class RoutingUnit
 {
   public:
     RoutingUnit(Router *router);
-    int outportCompute(RouteInfo route,
+    int outportCompute(RouteInfo& route,
                       int inport,
                       PortDirection inport_dirn);
 
@@ -80,7 +80,7 @@ class RoutingUnit
                              int inport,
                              PortDirection inport_dirn);
     
-    int outportComputeTorusDOR(RouteInfo route,
+    int outportComputeTorusDOR(RouteInfo& route,
                                int inport,
                                PortDirection inport_dirn);
     

@@ -52,6 +52,7 @@ class GarnetNetwork(RubyNetwork):
         50000, "network-level deadlock threshold"
     )
     torus_dims = VectorParam.Int([], "torus dimensions")
+    enable_escape = Param.Bool(False, "enable escape VC")
 
 
 class GarnetNetworkInterface(ClockedObject):
