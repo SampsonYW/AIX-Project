@@ -157,10 +157,13 @@ class GarnetNetwork : public Network
     void update_traffic_distribution(RouteInfo route);
     int getNextPacketID() { return m_next_packet_id++; }
 
+    std::vector<int> getTorusDims() const {return m_torus_dims;}
+
   protected:
     // Configuration
     int m_num_rows;
     int m_num_cols;
+    std::vector<int> m_torus_dims;
     uint32_t m_ni_flit_size;
     uint32_t m_max_vcs_per_vnet;
     uint32_t m_buffers_per_ctrl_vc;

@@ -51,6 +51,7 @@ class GarnetNetwork(RubyNetwork):
     garnet_deadlock_threshold = Param.UInt32(
         50000, "network-level deadlock threshold"
     )
+    torus_dims = VectorParam.Int([], "torus dimensions")
 
 
 class GarnetNetworkInterface(ClockedObject):

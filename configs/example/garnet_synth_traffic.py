@@ -117,12 +117,30 @@ parser.add_argument(
                         Set to -1 to inject randomly in all vnets.",
 )
 
+def parse_list(s):
+    return [int(x) for x in s.split(',')]
+
+parser.add_argument(
+    "--torus-dims",
+    type=parse_list,
+    default=[],
+    help="Torus dimensions, split by ','."
+)
+
 #
 # Add the ruby specific and protocol specific options
 #
 Ruby.define_options(parser)
 
 args = parser.parse_args()
+
+if args.torus_dims != []:
+    args.num_cpus = 1
+    for x in args.torus_dims:
+        args.num_cpus *= x
+    # print("OHHHHHHHHHHHHHHHHHHHHHHHHHH")
+    # print(args.num_cpus)
+
 
 cpus = [
     GarnetSyntheticTraffic(
