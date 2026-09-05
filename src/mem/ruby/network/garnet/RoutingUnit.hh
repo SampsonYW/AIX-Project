@@ -37,6 +37,8 @@
 #include "mem/ruby/network/garnet/GarnetNetwork.hh"
 #include "mem/ruby/network/garnet/flit.hh"
 
+#include "base/random.hh"
+
 namespace gem5
 {
 
@@ -81,6 +83,10 @@ class RoutingUnit
     int outportComputeTorusDOR(RouteInfo route,
                                int inport,
                                PortDirection inport_dirn);
+    
+    int outportComputeTorusADAPTIVE(RouteInfo route,
+                               int inport,
+                               PortDirection inport_dirn);
 
     // Returns true if vnet is present in the vector
     // of vnets or if the vector supports all vnets.
@@ -99,6 +105,8 @@ class RoutingUnit
     std::map<int, PortDirection> m_inports_idx2dirn;
     std::map<int, PortDirection> m_outports_idx2dirn;
     std::map<PortDirection, int> m_outports_dirn2idx;
+
+    Random m_adaptive_rng;
 };
 
 } // namespace garnet

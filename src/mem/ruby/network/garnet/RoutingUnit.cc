@@ -37,6 +37,8 @@
 #include "mem/ruby/network/garnet/Router.hh"
 #include "mem/ruby/slicc_interface/Message.hh"
 
+#include "mem/ruby/network/garnet/OutputUnit.hh"
+
 namespace gem5
 {
 
@@ -51,6 +53,7 @@ RoutingUnit::RoutingUnit(Router *router)
     m_router = router;
     m_routing_table.clear();
     m_weight_table.clear();
+    m_adaptive_rng.init(114514 * router->get_id());
 }
 
 void
@@ -195,6 +198,8 @@ RoutingUnit::outportCompute(RouteInfo route, int inport,
             outportComputeCustom(route, inport, inport_dirn); break;
         case TORUS_DOR_: outport = 
             outportComputeTorusDOR(route, inport, inport_dirn); break;
+        case TORUS_ADAPTIVE_: outport = 
+            outportComputeTorusADAPTIVE(route, inport, inport_dirn); break;
         default: outport =
             lookupRoutingTable(route.vnet, route.net_dest); break;
     }
@@ -292,6 +297,57 @@ RoutingUnit::outportComputeTorusDOR(RouteInfo route,
         }
     }
     assert(0);
+}
+int
+RoutingUnit::outportComputeTorusADAPTIVE(RouteInfo route,
+                                 int inport,
+                                 PortDirection inport_dirn)
+{
+    std::vector<int> dims = m_router->get_net_ptr()->getTorusDims();
+    int n = dims.size();
+    auto decode = [&](int id) {
+        std::vector<int> coord;
+        for(int i = 0; i < n; i++) {
+            coord.push_back(id % dims[i]);
+            id /= dims[i];
+        }
+        return coord;
+    } ;
+    int my_id = m_router->get_id();
+    int dest_id = route.dest_router;
+    std::vector<int> my = decode(my_id);
+    std::vector<int> dest = decode(dest_id);
+    std::vector<PortDirection> cans;
+    for(int i = 0; i < n; i++) {
+        if(my[i] != dest[i]) {
+            int plus = (dest[i] - my[i] + dims[i]) % dims[i];
+            int minus = (my[i] - dest[i] + dims[i]) % dims[i];
+            PortDirection outport_dirn = "D" + std::to_string(i);
+            if(plus <= minus) cans.push_back(outport_dirn + "+");
+            if(minus <= plus) cans.push_back(outport_dirn + "-");
+        }
+    }
+    int vnet = route.vnet;
+    auto Count = [&](int outport) {
+        auto* out = m_router->getOutputUnit(outport);
+        int vcs = out->getVcsPerVnet();
+        int base = vnet * vcs;
+        int cnt = 0;
+        for(int c = base; c < base + vcs; c++) {
+            if(out->is_vc_idle(c, curTick())) cnt++;
+        }
+        return cnt;
+    } ;
+    int max = -1;
+    std::vector<int> bests;
+    for(int i = 0; i < cans.size(); i++) {
+        int c = Count(m_outports_dirn2idx[cans[i]]);
+        if(max == -1 || max < c) max = c, bests = {};
+        if(max == c) bests.push_back(i);
+    }
+    assert(bests.size() > 0);
+    int pick = m_adaptive_rng.random<unsigned>(0, bests.size() - 1);
+    return m_outports_dirn2idx[cans[bests[pick]]];
 }
 
 // Template for implementing custom routing algorithm
