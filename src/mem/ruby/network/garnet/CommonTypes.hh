@@ -58,7 +58,9 @@ struct RouteInfo
     RouteInfo()
         : vnet(0), src_ni(0), src_router(0), dest_ni(0), dest_router(0),
           hops_traversed(0),
-          vc_class(-1)
+          vc_class(-1),
+          fallback(-1),
+          falls(false)
     {}
 
     bool inEscape() const {return vc_class == 0 || vc_class == 1;}
@@ -74,6 +76,8 @@ struct RouteInfo
     int dest_router;
     int hops_traversed;
     int vc_class;
+    int fallback;
+    bool falls;
 };
 
 #define INFINITE_ 10000

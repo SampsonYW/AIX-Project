@@ -106,6 +106,13 @@ OutputUnit::has_free_vc(int vnet, int vc_class)
 
         return false;
     }
+    else if(vc_class == -2) {
+        for(int vc = vc_base + 2; vc < vc_base + m_vc_per_vnet; vc++) {
+            if(is_vc_idle(vc, curTick()))
+                return true;
+        }
+        return false;
+    }
     else {
         if(vc_class >= 2 || m_router->get_net_ptr()->isNoStickyEnabled()) {
             for(int vc = vc_base + 2; vc < vc_base + m_vc_per_vnet; vc++) {
@@ -125,6 +132,16 @@ OutputUnit::select_free_vc(int vnet, int vc_class)
     int vc_base = vnet*m_vc_per_vnet;
     if(vc_class == -1) {
         for (int vc = vc_base; vc < vc_base + m_vc_per_vnet; vc++) {
+            if (is_vc_idle(vc, curTick())) {
+                outVcState[vc].setState(ACTIVE_, curTick());
+                return vc;
+            }
+        }
+
+        return -1;
+    }
+    else if(vc_class == -2) {
+        for (int vc = vc_base + 2; vc < vc_base + m_vc_per_vnet; vc++) {
             if (is_vc_idle(vc, curTick())) {
                 outVcState[vc].setState(ACTIVE_, curTick());
                 return vc;

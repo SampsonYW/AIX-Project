@@ -124,10 +124,35 @@ SwitchAllocator::arbitrate_inports()
                 int outport = input_unit->get_outport(invc);
                 int outvc = input_unit->get_outvc(invc);
 
+                bool make_request = false;
+                flit *t_flit = input_unit->peekTopFlit(invc);
+                if(t_flit->get_route().vc_class >= 2) {
+                    int vnet = get_vnet(invc);
+                    int fallback = t_flit->get_route().fallback;
+                    int escape = t_flit->get_route().vc_class - 2;
+                    // printf("isVNetOrdered%d %d\n", (m_router->get_net_ptr())->isVNetOrdered(vnet), fallback);
+                    t_flit->get_route().falls = false;
+                    if(outvc == -1) {
+                        if(m_router->getOutputUnit(outport)->has_free_vc(vnet, -2)) {
+                            make_request = true;
+                        }
+                        else if(m_router->getOutputUnit(fallback)->has_free_vc(vnet, escape)) {
+                            make_request = true;
+                            outport = fallback;
+                            t_flit->get_route().falls = true;
+                        }
+                        // assert(outport == fallback);
+                    }
+                    else {
+                        make_request = m_router->getOutputUnit(outport)->has_credit(outvc);
+                    }
+                }
+                else {
+                    make_request = send_allowed(inport, invc, outport, outvc);
+                }
+
                 // check if the flit in this InputVC is allowed to be sent
                 // send_allowed conditions described in that function.
-                bool make_request =
-                    send_allowed(inport, invc, outport, outvc);
 
                 if (make_request) {
                     m_input_arbiter_activity++;
@@ -347,10 +372,27 @@ SwitchAllocator::vc_allocate(int outport, int inport, int invc)
     // Select a free VC from the output port
 
     auto input_unit = m_router->getInputUnit(inport);
-    int vc_class = input_unit->peekTopFlit(invc)->get_route().vc_class;
+    flit *t_flit = input_unit->peekTopFlit(invc);
+    int vc_class = t_flit->get_route().vc_class;
+    int vnet = get_vnet(invc);
+    auto output_unit = m_router->getOutputUnit(outport);
+    int outvc = -1;
 
-    int outvc =
-        m_router->getOutputUnit(outport)->select_free_vc(get_vnet(invc), vc_class);
+    if(vc_class >= 2) {
+        if(outport != input_unit->get_outport(invc)) {
+            outvc = output_unit->select_free_vc(vnet, vc_class - 2);
+        }
+        else if(!t_flit->get_route().falls) {
+            assert(output_unit->has_free_vc(vnet, -2));
+            outvc = output_unit->select_free_vc(vnet, -2);
+        }
+        else {
+            outvc = output_unit->select_free_vc(vnet, vc_class - 2);
+        }
+    }
+    else {
+        outvc = output_unit->select_free_vc(get_vnet(invc), vc_class);
+    }
 
     // has to get a valid VC since it checked before performing SA
     assert(outvc != -1);

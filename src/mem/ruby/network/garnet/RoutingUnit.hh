@@ -84,7 +84,7 @@ class RoutingUnit
                                int inport,
                                PortDirection inport_dirn);
     
-    int outportComputeTorusADAPTIVE(RouteInfo route,
+    int outportComputeTorusADAPTIVE(RouteInfo& route,
                                int inport,
                                PortDirection inport_dirn);
 

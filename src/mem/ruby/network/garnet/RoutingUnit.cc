@@ -295,6 +295,7 @@ RoutingUnit::outportComputeTorusDOR(RouteInfo& route,
             if(plus <= minus) dir = "+";
             else dir = "-";
             outport_dirn += dir;
+            int outport = m_outports_dirn2idx[outport_dirn];
             if(m_router->get_net_ptr()->isEscapeEnabled()) {
                 bool dateline = 0;
                 if(dir == "+" && my[i] == dims[i] - 1) dateline = 1;
@@ -307,22 +308,26 @@ RoutingUnit::outportComputeTorusDOR(RouteInfo& route,
                 if(!route.inEscape()) {
                     if(dateline) route.vc_class = 2;
                     else route.vc_class = 3;
+                    route.fallback = outport;
                 }
                 else {
                     if(change) route.vc_class = 1;
                     if(dateline) route.vc_class = 0;
                 }
             }
-            return m_outports_dirn2idx[outport_dirn];
+            return outport;
         }
     }
     assert(0);
 }
 int
-RoutingUnit::outportComputeTorusADAPTIVE(RouteInfo route,
+RoutingUnit::outportComputeTorusADAPTIVE(RouteInfo& route,
                                  int inport,
                                  PortDirection inport_dirn)
 {
+    if(route.inEscape()) {
+        return outportComputeTorusDOR(route, inport, inport_dirn);
+    }
     std::vector<int> dims = m_router->get_net_ptr()->getTorusDims();
     int n = dims.size();
     auto decode = [&](int id) {
@@ -337,14 +342,31 @@ RoutingUnit::outportComputeTorusADAPTIVE(RouteInfo route,
     int dest_id = route.dest_router;
     std::vector<int> my = decode(my_id);
     std::vector<int> dest = decode(dest_id);
-    std::vector<PortDirection> cans;
     for(int i = 0; i < n; i++) {
         if(my[i] != dest[i]) {
             int plus = (dest[i] - my[i] + dims[i]) % dims[i];
             int minus = (my[i] - dest[i] + dims[i]) % dims[i];
             PortDirection outport_dirn = "D" + std::to_string(i);
-            if(plus <= minus) cans.push_back(outport_dirn + "+");
-            if(minus <= plus) cans.push_back(outport_dirn + "-");
+            std::string dir;
+            if(plus <= minus) dir = "+";
+            else dir = "-";
+            outport_dirn += dir;
+            route.fallback = m_outports_dirn2idx[outport_dirn];
+            break;
+        }
+    }
+    struct candidate {
+        int dim;
+        PortDirection port;
+    } ;
+    std::vector<candidate> cans;
+    for(int i = 0; i < n; i++) {
+        if(my[i] != dest[i]) {
+            int plus = (dest[i] - my[i] + dims[i]) % dims[i];
+            int minus = (my[i] - dest[i] + dims[i]) % dims[i];
+            PortDirection outport_dirn = "D" + std::to_string(i);
+            if(plus <= minus) cans.push_back({i, outport_dirn + "+"});
+            if(minus <= plus) cans.push_back({i, outport_dirn + "-"});
         }
     }
     int vnet = route.vnet;
@@ -361,13 +383,21 @@ RoutingUnit::outportComputeTorusADAPTIVE(RouteInfo route,
     int max = -1;
     std::vector<int> bests;
     for(int i = 0; i < cans.size(); i++) {
-        int c = Count(m_outports_dirn2idx[cans[i]]);
+        int c = Count(m_outports_dirn2idx[cans[i].port]);
         if(max == -1 || max < c) max = c, bests = {};
         if(max == c) bests.push_back(i);
     }
     assert(bests.size() > 0);
     int pick = m_adaptive_rng.random<unsigned>(0, bests.size() - 1);
-    return m_outports_dirn2idx[cans[bests[pick]]];
+    auto [dim, port] = cans[bests[pick]];
+    if(m_router->get_net_ptr()->isEscapeEnabled()) {
+        bool dateline = 0;
+        if(port.back() == '+' && my[dim] == dims[dim] - 1) dateline = 1;
+        if(port.back() == '-' && my[dim] == 0) dateline = 1;
+        if(dateline) route.vc_class = 2;
+        else route.vc_class = 3;
+    }
+    return m_outports_dirn2idx[port];
 }
 
 // Template for implementing custom routing algorithm
