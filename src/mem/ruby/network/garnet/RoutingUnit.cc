@@ -304,8 +304,14 @@ RoutingUnit::outportComputeTorusDOR(RouteInfo& route,
                 if(inport_dirn.size() == 3 && inport_dirn[0] == 'D' && isdigit(inport_dirn[1]) && (inport_dirn[2] == '+' || inport_dirn[2] == '-'))
                     in = inport_dirn[1] - '0';
                 if(in != i) change = 1;
-                if(change) route.vc_class = 1;
-                if(dateline) route.vc_class = 0;
+                if(!route.inEscape()) {
+                    if(dateline) route.vc_class = 2;
+                    else route.vc_class = 3;
+                }
+                else {
+                    if(change) route.vc_class = 1;
+                    if(dateline) route.vc_class = 0;
+                }
             }
             return m_outports_dirn2idx[outport_dirn];
         }

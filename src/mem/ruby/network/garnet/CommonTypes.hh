@@ -61,6 +61,8 @@ struct RouteInfo
           vc_class(-1)
     {}
 
+    bool inEscape() const {return vc_class == 0 || vc_class == 1;}
+
     // destination format for table-based routing
     int vnet;
     NetDest net_dest;

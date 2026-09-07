@@ -73,6 +73,7 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_next_packet_id = 0;
     m_torus_dims = p.torus_dims;
     m_enable_escape = p.enable_escape;
+    m_enable_no_sticky = p.enable_no_sticky;
 
     m_enable_fault_model = p.enable_fault_model;
     if (m_enable_fault_model)

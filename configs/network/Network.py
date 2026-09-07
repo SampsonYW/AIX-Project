@@ -126,6 +126,12 @@ def define_options(parser):
         default=False,
         help="enable escape VC flow control"
     )
+    parser.add_argument(
+        "--no-sticky",
+        action="store_true",
+        default=False,
+        help="allow exiting escape VC"
+    )
 
 
 def create_network(options, ruby):
@@ -179,6 +185,7 @@ def init_network(options, network, InterfaceClass):
         network.garnet_deadlock_threshold = options.garnet_deadlock_threshold
         network.torus_dims = options.torus_dims
         network.enable_escape = options.escape
+        network.enable_no_sticky = options.no_sticky
 
         # Create Bridges and connect them to the corresponding links
         for intLink in network.int_links:

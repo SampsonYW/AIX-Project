@@ -53,6 +53,7 @@ class GarnetNetwork(RubyNetwork):
     )
     torus_dims = VectorParam.Int([], "torus dimensions")
     enable_escape = Param.Bool(False, "enable escape VC")
+    enable_no_sticky = Param.Bool(False, "allow exiting escape VC")
 
 
 class GarnetNetworkInterface(ClockedObject):
