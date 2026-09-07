@@ -153,6 +153,7 @@ cpus = [
         inj_vnet=args.inj_vnet,
         precision=args.precision,
         num_dest=args.num_dirs,
+        torus_dims=args.torus_dims
     )
     for i in range(args.num_cpus)
 ]

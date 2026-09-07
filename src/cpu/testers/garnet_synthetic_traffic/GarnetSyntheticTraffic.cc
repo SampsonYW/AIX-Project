@@ -91,7 +91,8 @@ GarnetSyntheticTraffic::GarnetSyntheticTraffic(const Params &p)
       injVnet(p.inj_vnet),
       precision(p.precision),
       responseLimit(p.response_limit),
-      requestorId(p.system->getRequestorId(this))
+      requestorId(p.system->getRequestorId(this)),
+      dims(p.torus_dims)
 {
     // set up counters
     noResponseCycles = 0;
@@ -180,65 +181,154 @@ GarnetSyntheticTraffic::tick()
     }
 }
 
+std::vector<int>
+GarnetSyntheticTraffic::decode(int id)
+{
+    std::vector<int> coord;
+    for(int i = 0; i < dims.size(); i++) {
+        coord.push_back(id % dims[i]);
+        id /= dims[i];
+    }
+    return coord;
+}
+int
+GarnetSyntheticTraffic::encode(std::vector<int> coord)
+{
+    int id = 0, mult = 1;
+    for(int i = 0; i < dims.size(); i++) {
+        id += mult * coord[i];
+        mult *= dims[i];
+    }
+    return id;
+}
+
 void
 GarnetSyntheticTraffic::generatePkt()
 {
     int num_destinations = numDestinations;
-    int radix = (int) sqrt(num_destinations);
     unsigned destination = id;
-    int dest_x = -1;
-    int dest_y = -1;
     int source = id;
-    int src_x = id%radix;
-    int src_y = id/radix;
+    if(dims.empty()) {
+        int radix = (int) sqrt(num_destinations);
+        int dest_x = -1;
+        int dest_y = -1;
+        int src_x = id%radix;
+        int src_y = id/radix;
 
-    if (singleDest >= 0)
-    {
-        destination = singleDest;
-    } else if (traffic == UNIFORM_RANDOM_) {
-        destination = random_mt.random<unsigned>(0, num_destinations - 1);
-    } else if (traffic == BIT_COMPLEMENT_) {
-        dest_x = radix - src_x - 1;
-        dest_y = radix - src_y - 1;
-        destination = dest_y*radix + dest_x;
-    } else if (traffic == BIT_REVERSE_) {
-        unsigned int straight = source;
-        unsigned int reverse = source & 1; // LSB
-
-        int num_bits = (int) log2(num_destinations);
-
-        for (int i = 1; i < num_bits; i++)
+        if (singleDest >= 0)
         {
-            reverse <<= 1;
-            straight >>= 1;
-            reverse |= (straight & 1); // LSB
-        }
-        destination = reverse;
-    } else if (traffic == BIT_ROTATION_) {
-        if (source%2 == 0)
-            destination = source/2;
-        else // (source%2 == 1)
-            destination = ((source/2) + (num_destinations/2));
-    } else if (traffic == NEIGHBOR_) {
-            dest_x = (src_x + 1) % radix;
+            destination = singleDest;
+        } else if (traffic == UNIFORM_RANDOM_) {
+            destination = random_mt.random<unsigned>(0, num_destinations - 1);
+        } else if (traffic == BIT_COMPLEMENT_) {
+            dest_x = radix - src_x - 1;
+            dest_y = radix - src_y - 1;
+            destination = dest_y*radix + dest_x;
+        } else if (traffic == BIT_REVERSE_) {
+            unsigned int straight = source;
+            unsigned int reverse = source & 1; // LSB
+
+            int num_bits = (int) log2(num_destinations);
+
+            for (int i = 1; i < num_bits; i++)
+            {
+                reverse <<= 1;
+                straight >>= 1;
+                reverse |= (straight & 1); // LSB
+            }
+            destination = reverse;
+        } else if (traffic == BIT_ROTATION_) {
+            if (source%2 == 0)
+                destination = source/2;
+            else // (source%2 == 1)
+                destination = ((source/2) + (num_destinations/2));
+        } else if (traffic == NEIGHBOR_) {
+                dest_x = (src_x + 1) % radix;
+                dest_y = src_y;
+                destination = dest_y*radix + dest_x;
+        } else if (traffic == SHUFFLE_) {
+            if (source < num_destinations/2)
+                destination = source*2;
+            else
+                destination = (source*2 - num_destinations + 1);
+        } else if (traffic == TRANSPOSE_) {
+                dest_x = src_y;
+                dest_y = src_x;
+                destination = dest_y*radix + dest_x;
+        } else if (traffic == TORNADO_) {
+            dest_x = (src_x + (int) ceil(radix/2) - 1) % radix;
             dest_y = src_y;
             destination = dest_y*radix + dest_x;
-    } else if (traffic == SHUFFLE_) {
-        if (source < num_destinations/2)
-            destination = source*2;
-        else
-            destination = (source*2 - num_destinations + 1);
-    } else if (traffic == TRANSPOSE_) {
-            dest_x = src_y;
-            dest_y = src_x;
-            destination = dest_y*radix + dest_x;
-    } else if (traffic == TORNADO_) {
-        dest_x = (src_x + (int) ceil(radix/2) - 1) % radix;
-        dest_y = src_y;
-        destination = dest_y*radix + dest_x;
+        }
+        else {
+            fatal("Unknown Traffic Type: %s!\n", traffic);
+        }
     }
     else {
-        fatal("Unknown Traffic Type: %s!\n", traffic);
+        int n = dims.size();
+        std::vector<int> my = decode(source);
+        std::vector<int> dest;
+        if(singleDest >= 0) {
+            destination = singleDest;
+        }
+        else if(traffic == UNIFORM_RANDOM_) {
+            // fatal("test");
+            destination = random_mt.random<unsigned>(0, num_destinations - 1);
+        }
+        else if(traffic == BIT_COMPLEMENT_) {
+            for(int i = 0; i < n; i++) {
+                dest.push_back(dims[i] - my[i] - 1);
+            }
+            destination = encode(dest);
+        }
+        else if(traffic == BIT_REVERSE_) {
+            unsigned int straight = source;
+            unsigned int reverse = source & 1; // LSB
+
+            int num_bits = (int) log2(num_destinations);
+
+            for (int i = 1; i < num_bits; i++)
+            {
+                reverse <<= 1;
+                straight >>= 1;
+                reverse |= (straight & 1); // LSB
+            }
+            destination = reverse;
+        }
+        else if(traffic == BIT_ROTATION_) {
+            if (source%2 == 0)
+                destination = source/2;
+            else // (source%2 == 1)
+                destination = ((source/2) + (num_destinations/2));
+        }
+        else if(traffic == NEIGHBOR_) {
+            dest = my;
+            // int dim = rnd.random(0, n - 1);
+            dest[0] = (dest[0] + 1) % dims[0];
+            destination = encode(dest);
+            // fatal("Unimplemented Traffic Type: %s!\n", traffic);
+        }
+        else if(traffic == SHUFFLE_) {
+            if (source < num_destinations/2)
+                destination = source*2;
+            else
+                destination = (source*2 - num_destinations + 1);
+        }
+        else if(traffic == TRANSPOSE_) {
+            dest = my;
+            std::swap(dest[0], dest[1]);
+            destination = encode(dest);
+            // fatal("Unimplemented Traffic Type: %s!\n", traffic);
+        }
+        else if(traffic == TORNADO_) {
+            dest = my;
+            dest[0] = (my[0] + (int) ceil(dims[0] / 2) - 1) % dims[0];
+            destination = encode(dest);
+            // fatal("Unimplemented Traffic Type: %s!\n", traffic);
+        }
+        else {
+            fatal("Unknown Traffic Type: %s!\n", traffic);
+        }
     }
 
     // The source of the packets is a cache.

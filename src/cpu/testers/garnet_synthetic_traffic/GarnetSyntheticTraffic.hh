@@ -135,11 +135,16 @@ class GarnetSyntheticTraffic : public ClockedObject
 
     RequestorID requestorId;
 
+    std::vector<int> dims;
+
     void completeRequest(PacketPtr pkt);
 
     void generatePkt();
     void sendPkt(PacketPtr pkt);
     void initTrafficType();
+
+    std::vector<int> decode(int id);
+    int encode(std::vector<int> coord);
 
     void doRetry();
 
