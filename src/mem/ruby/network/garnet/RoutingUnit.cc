@@ -352,21 +352,24 @@ RoutingUnit::outportComputeTorusADAPTIVE(RouteInfo& route,
             else dir = "-";
             outport_dirn += dir;
             route.fallback = m_outports_dirn2idx[outport_dirn];
+            if(m_router->get_net_ptr()->isEscapeEnabled()) {
+                bool dateline = 0;
+                if(dir == "+" && my[i] == dims[i] - 1) dateline = 1;
+                if(dir == "-" && my[i] == 0) dateline = 1;
+                if(dateline) route.vc_class = 2;
+                else route.vc_class = 3;
+            }
             break;
         }
     }
-    struct candidate {
-        int dim;
-        PortDirection port;
-    } ;
-    std::vector<candidate> cans;
+    std::vector<PortDirection> cans;
     for(int i = 0; i < n; i++) {
         if(my[i] != dest[i]) {
             int plus = (dest[i] - my[i] + dims[i]) % dims[i];
             int minus = (my[i] - dest[i] + dims[i]) % dims[i];
             PortDirection outport_dirn = "D" + std::to_string(i);
-            if(plus <= minus) cans.push_back({i, outport_dirn + "+"});
-            if(minus <= plus) cans.push_back({i, outport_dirn + "-"});
+            if(plus <= minus) cans.push_back(outport_dirn + "+");
+            if(minus <= plus) cans.push_back(outport_dirn + "-");
         }
     }
     int vnet = route.vnet;
@@ -383,21 +386,13 @@ RoutingUnit::outportComputeTorusADAPTIVE(RouteInfo& route,
     int max = -1;
     std::vector<int> bests;
     for(int i = 0; i < cans.size(); i++) {
-        int c = Count(m_outports_dirn2idx[cans[i].port]);
+        int c = Count(m_outports_dirn2idx[cans[i]]);
         if(max == -1 || max < c) max = c, bests = {};
         if(max == c) bests.push_back(i);
     }
     assert(bests.size() > 0);
     int pick = m_adaptive_rng.random<unsigned>(0, bests.size() - 1);
-    auto [dim, port] = cans[bests[pick]];
-    if(m_router->get_net_ptr()->isEscapeEnabled()) {
-        bool dateline = 0;
-        if(port.back() == '+' && my[dim] == dims[dim] - 1) dateline = 1;
-        if(port.back() == '-' && my[dim] == 0) dateline = 1;
-        if(dateline) route.vc_class = 2;
-        else route.vc_class = 3;
-    }
-    return m_outports_dirn2idx[port];
+    return m_outports_dirn2idx[cans[bests[pick]]];
 }
 
 // Template for implementing custom routing algorithm
