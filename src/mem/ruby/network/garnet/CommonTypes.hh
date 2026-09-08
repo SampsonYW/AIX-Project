@@ -77,6 +77,7 @@ struct RouteInfo
     int hops_traversed;
     int vc_class;
     int fallback;
+    int vc_class_falls;
     bool falls;
 };
 

@@ -309,6 +309,7 @@ RoutingUnit::outportComputeTorusDOR(RouteInfo& route,
                     if(dateline) route.vc_class = 2;
                     else route.vc_class = 3;
                     route.fallback = outport;
+                    route.vc_class_falls = route.vc_class;
                 }
                 else {
                     if(change) route.vc_class = 1;
@@ -352,6 +353,13 @@ RoutingUnit::outportComputeTorusADAPTIVE(RouteInfo& route,
             else dir = "-";
             outport_dirn += dir;
             route.fallback = m_outports_dirn2idx[outport_dirn];
+            if(m_router->get_net_ptr()->isEscapeEnabled()) {
+                bool dateline = 0;
+                if(dir == "+" && my[i] == dims[i] - 1) dateline = 1;
+                if(dir == "-" && my[i] == 0) dateline = 1;
+                if(dateline) route.vc_class_falls = 2;
+                else route.vc_class_falls = 3;
+            }
             break;
         }
     }
@@ -375,7 +383,11 @@ RoutingUnit::outportComputeTorusADAPTIVE(RouteInfo& route,
         int vcs = out->getVcsPerVnet();
         int base = vnet * vcs;
         int cnt = 0;
-        for(int c = base; c < base + vcs; c++) {
+        int start = 0;
+        if(m_router->get_net_ptr()->isEscapeEnabled()) {
+            start = 2;
+        }
+        for(int c = base + start; c < base + vcs; c++) {
             if(out->is_vc_idle(c, curTick())) cnt++;
         }
         return cnt;

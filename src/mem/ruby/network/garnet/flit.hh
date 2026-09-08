@@ -77,6 +77,7 @@ class flit
         m_vc = vc;
         if(vc >= 2) m_route.vc_class = -1;
         else m_route.vc_class = vc;
+        m_route.vc_class_falls = m_route.vc_class;
         m_route.fallback = -1;
     }
     void set_route(RouteInfo route) { m_route = route; }

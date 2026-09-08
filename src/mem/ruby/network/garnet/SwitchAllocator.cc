@@ -126,12 +126,12 @@ SwitchAllocator::arbitrate_inports()
 
                 bool make_request = false;
                 flit *t_flit = input_unit->peekTopFlit(invc);
+                t_flit->get_route().falls = false;
                 if(t_flit->get_route().vc_class >= 2) {
                     int vnet = get_vnet(invc);
                     int fallback = t_flit->get_route().fallback;
-                    int escape = t_flit->get_route().vc_class - 2;
+                    int escape = t_flit->get_route().vc_class_falls - 2;
                     // printf("isVNetOrdered%d %d\n", (m_router->get_net_ptr())->isVNetOrdered(vnet), fallback);
-                    t_flit->get_route().falls = false;
                     if(outvc == -1) {
                         if(m_router->getOutputUnit(outport)->has_free_vc(vnet, -2)) {
                             make_request = true;
@@ -142,6 +142,19 @@ SwitchAllocator::arbitrate_inports()
                             t_flit->get_route().falls = true;
                         }
                         // assert(outport == fallback);
+                        else {
+                            if(false && curTick() > 300 && curTick() < 400) {
+                                printf("STUCK t=%lu r=%d inport=%d outport=%d fallback=%d "
+                                    "vc_class=%d escape=%d pool_free=%d esc_free=%d\n",
+                                    curTick(), m_router->get_id(), inport, outport,
+                                    fallback, t_flit->get_route().vc_class, escape,
+                                    (int)m_router->getOutputUnit(outport)->has_free_vc(vnet, -2), (int)m_router->getOutputUnit(fallback)->has_free_vc(vnet, escape));
+                                    auto* out = m_router->getOutputUnit(fallback);
+                                    int base = vnet * out->getVcsPerVnet();
+                                    for(int c = base; c < base + out->getVcsPerVnet(); c++)
+                                        printf("  vc%d idle=%d\n", c, (int)out->is_vc_idle(c, curTick()));
+                            }
+                        }
                     }
                     else {
                         make_request = m_router->getOutputUnit(outport)->has_credit(outvc);
@@ -374,20 +387,21 @@ SwitchAllocator::vc_allocate(int outport, int inport, int invc)
     auto input_unit = m_router->getInputUnit(inport);
     flit *t_flit = input_unit->peekTopFlit(invc);
     int vc_class = t_flit->get_route().vc_class;
+    int vc_class_falls = t_flit->get_route().vc_class_falls;
     int vnet = get_vnet(invc);
     auto output_unit = m_router->getOutputUnit(outport);
     int outvc = -1;
 
     if(vc_class >= 2) {
         if(outport != input_unit->get_outport(invc)) {
-            outvc = output_unit->select_free_vc(vnet, vc_class - 2);
+            outvc = output_unit->select_free_vc(vnet, vc_class_falls - 2);
         }
         else if(!t_flit->get_route().falls) {
             assert(output_unit->has_free_vc(vnet, -2));
             outvc = output_unit->select_free_vc(vnet, -2);
         }
         else {
-            outvc = output_unit->select_free_vc(vnet, vc_class - 2);
+            outvc = output_unit->select_free_vc(vnet, vc_class_falls - 2);
         }
     }
     else {

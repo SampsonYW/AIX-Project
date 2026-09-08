@@ -40,6 +40,10 @@
 #include "mem/ruby/network/MessageBuffer.hh"
 #include "mem/ruby/network/garnet/Credit.hh"
 #include "mem/ruby/network/garnet/flitBuffer.hh"
+#include "mem/ruby/network/garnet/GarnetNetwork.hh"
+#include "mem/ruby/network/garnet/InputUnit.hh"
+#include "mem/ruby/network/garnet/OutputUnit.hh"
+#include "mem/ruby/network/garnet/Router.hh"
 #include "mem/ruby/slicc_interface/Message.hh"
 
 namespace gem5
@@ -473,9 +477,63 @@ NetworkInterface::calculateVC(int vnet)
     }
 
     vc_busy_counter[vnet] += 1;
-    panic_if(vc_busy_counter[vnet] > m_deadlock_threshold,
-        "%s: Possible network deadlock in vnet: %d at time: %llu \n",
-        name(), vnet, curTick());
+    if (vc_busy_counter[vnet] > m_deadlock_threshold) {
+        printf("=== DEADLOCK DUMP t=%llu ===\n", curTick());
+        for (auto* r : m_net_ptr->get_routers()) {
+            int rid = r->get_id();
+            if (rid > 7) continue;  // 只看R0-R7 (D0+环 y=0,z=0)
+            int nin = r->get_num_inports();
+            for (int ip = 0; ip < nin; ip++) {
+                auto* iu = r->getInputUnit(ip);
+                int nvc = r->get_num_vcs();
+                for (int iv = 0; iv < nvc; iv++) {
+                    bool hasflit = iu->isReady(iv, curTick());
+                    flit *f = hasflit ? iu->peekTopFlit(iv) : nullptr;
+                    int outp = -1, outvc = -1;
+                    int dest = -1, vc_class = -9, vcf = -9, fb = -9;
+                    const char* stage_name = "-";
+                    const char* outdir = "-";
+                    if (f) {
+                        outp = iu->get_outport(iv);
+                        outvc = iu->get_outvc(iv);
+                        auto& rt = f->get_route();
+                        dest = rt.dest_router;
+                        vc_class = rt.vc_class;
+                        vcf = rt.vc_class_falls;
+                        fb = rt.fallback;
+                        auto stg = f->get_stage();
+                        switch (stg.first) {
+                            case I_: stage_name="I"; break;
+                            case VA_: stage_name="VA"; break;
+                            case SA_: stage_name="SA"; break;
+                            case ST_: stage_name="ST"; break;
+                            case LT_: stage_name="LT"; break;
+                            default: break;
+                        }
+                    }
+                    printf("R%d ip%d(%s) iv%d hasflit=%d stage=%s dest=%d vc=%d vcf=%d fb=%d outport=%d outvc=%d",
+                        rid, ip,
+                        r->getPortDirectionName(iu->get_direction()).c_str(),
+                        iv, (int)hasflit, stage_name, dest, vc_class, vcf, fb,
+                        outp, outvc);
+                    if (outp >= 0) {
+                        auto* ou = r->getOutputUnit(outp);
+                        outdir = r->getPortDirectionName(ou->get_direction()).c_str();
+                        printf(" outdir=%s | outvc:", outdir);
+                        int base = vnet * ou->getVcsPerVnet();
+                        for (int c = base; c < base + ou->getVcsPerVnet(); c++)
+                            printf(" %d:%s/%d", c - base,
+                                ou->is_vc_idle(c, curTick()) ? "i" : "B",
+                                ou->get_credit_count(c));
+                    }
+                    printf("\n");
+                }
+            }
+        }
+        fflush(stdout);
+        panic("%s: Possible network deadlock in vnet: %d at time: %llu \n",
+            name(), vnet, curTick());
+    }
 
     return -1;
 }

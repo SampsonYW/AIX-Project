@@ -162,6 +162,8 @@ class GarnetNetwork : public Network
     bool isEscapeEnabled() const {return m_enable_escape;}
     bool isNoStickyEnabled() const {return m_enable_no_sticky;}
 
+    std::vector<Router *>& get_routers() { return m_routers; }
+
   protected:
     // Configuration
     int m_num_rows;
